@@ -1,0 +1,80 @@
+---
+title: "CW07"
+author: "Ralph"
+date: "2020/10/10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Machine Learning
+
+Well, I did overquailfid my self-control that I believe I can learn machine learning during the long holiday automatically.
+It is time to pay the debt.
+
+### caret
+
+The `caret` package (short for Classification And REgression Training) contains functions to streamline the model training process for complex regression and classification problems.
+
+
+```{r caret train}
+library(caret)
+library(mlbench)
+data(Sonar)
+
+
+inTrain <- createDataPartition(
+  y = Sonar$Class,
+  ## the outcome data are needed
+  p = .75,
+  ## The percentage of data in the
+  ## training set
+  list = FALSE
+)
+
+training <- Sonar[ inTrain,]
+testing  <- Sonar[-inTrain,]
+
+ctrl <- trainControl(
+  method = "repeatedcv", 
+  #repeated K-fold cross-validation
+  repeats = 3,
+  classProbs = TRUE, 
+  summaryFunction = twoClassSummary
+  #compute measures specific to two-class problems, such as the area under the ROC curve
+)
+
+set.seed(123)
+plsFit <- train(
+  Class ~ .,
+  data = training,
+  method = "pls", #partial least squares discriminant analysis 
+  preProc = c("center", "scale"),
+  tuneLength = 15,
+  trControl = ctrl,
+  metric = "ROC"
+)
+ggplot(plsFit)
+```
+
+```{r caret predict}
+plsClasses <- predict(plsFit, newdata = testing)
+confusionMatrix(data = plsClasses, testing$Class)
+```
+
+### LogicReg
+
+A package for logic regression
+
+```{r LogicReg}
+library(LogicReg)
+data(logreg.savefit1,logreg.savefit2,logreg.savefit3,logreg.savefit4,
+logreg.savefit5,logreg.savefit6,logreg.savefit7,logreg.testdat)
+myanneal <- logreg.anneal.control(start = -1, end = -4, iter = 500, update = 100)
+fit1 <- logreg(resp = logreg.testdat[,1], bin=logreg.testdat[, 2:21], type = 2,
+select = 1, ntrees = 2, anneal.control = myanneal)
+plot(fit1)
+```
+

@@ -1,0 +1,285 @@
+---
+title: "CW05"
+author: "Ralph_Huang"
+date: "2020/9/9"
+output:
+  html_document: default
+  pdf_document: default
+  always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Spatial
+
+In this week, we will explore spatial data. I have limited accumulation in this area. It's hard to write a pre-overview before any learning.
+
+### GIS data
+
+#### 5.1 sf
+
+After coping some codes in the orientation page of sf
+
+```{r sf_feature example}
+library(sf)
+## Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 7.0.0
+nc <- st_read(system.file("shape/nc.shp", package="sf"))
+## Reading layer `nc' from data source `/tmp/RtmpNt5oDA/Rinst34af264cc9b4/sf/shape/nc.shp' using driver `ESRI Shapefile'
+## Simple feature collection with 100 features and 14 fields
+## geometry type:  MULTIPOLYGON
+## dimension:      XY
+## bbox:           xmin: -84.32385 ymin: 33.88199 xmax: -75.45698 ymax: 36.58965
+## geographic CRS: NAD27
+class(nc)
+attr(nc, "sf_column")
+print(nc[9:15], n = 3)
+```
+
+```{r basic plot}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+nc = read_sf(system.file("gpkg/nc.gpkg", package="sf"))
+nc2 <- nc %>% st_transform(32119) %>% select(SID74, SID79, geom) %>%   gather(VAR, SID, -geom)
+ggplot() + geom_sf(data = nc2, aes(fill = SID)) + facet_wrap( ~ VAR, ncol = 1)
+```
+
+```{r geometrilize}
+nc_geom <- st_geometry(nc)
+nc_geom[[1]]
+```
+
+
+```{r combine points}
+p <- rbind(c(3.2,4), c(3,4.6), c(3.8,4.4), c(3.5,3.8), c(3.4,3.6), c(3.9,4.5))
+(mp <- st_multipoint(p))
+s1 <- rbind(c(0,3),c(0,4),c(1,5),c(2,5))
+(ls <- st_linestring(s1))
+s2 <- rbind(c(0.2,3), c(0.2,4), c(1,4.8), c(2,4.8))
+s3 <- rbind(c(0,4.4), c(0.6,5))
+(mls <- st_multilinestring(list(s1,s2,s3)))
+p1 <- rbind(c(0,0), c(1,0), c(3,2), c(2,4), c(1,4), c(0,0))
+p2 <- rbind(c(1,1), c(1,2), c(2,2), c(1,1))
+pol <-st_polygon(list(p1,p2))
+p3 <- rbind(c(3,0), c(4,0), c(4,1), c(3,1), c(3,0))
+p4 <- rbind(c(3.3,0.3), c(3.8,0.3), c(3.8,0.8), c(3.3,0.8), c(3.3,0.3))[5:1,]
+p5 <- rbind(c(3,3), c(4,2), c(4,3), c(3,3))
+(mpol <- st_multipolygon(list(list(p1,p2), list(p3,p4), list(p5))))
+
+(gc <- st_geometrycollection(list(mp, mpol, ls)))
+
+```
+```{r}
+(mix <- st_sfc(st_geometrycollection(list(st_point(1:2))),
+    st_geometrycollection(list(st_linestring(matrix(1:4,2))))))
+```
+
+```{r write spatial data into file}
+st_write(nc, "nc.shp")
+```
+
+```{r}
+nc.web_mercator <- st_transform(nc, 3857)
+sel <- c(1,5,14)
+geom = st_geometry(nc.web_mercator[sel,])
+buf <- st_buffer(geom, dist = 30000)
+plot(buf, border = 'red')
+plot(geom, add = TRUE)
+plot(st_buffer(geom, -5000), add = TRUE, border = 'blue')
+```
+```{r}
+nc <- st_read(system.file("shape/nc.shp", package="sf"),
+    agr = c(AREA = "aggregate", PERIMETER = "aggregate", CNTY_ = "identity",
+        CNTY_ID = "identity", NAME = "identity", FIPS = "identity", FIPSNO = "identity",
+        CRESS_ID = "identity", BIR74 = "aggregate", SID74 = "aggregate", NWBIR74 = "aggregate",
+        BIR79 = "aggregate", SID79 = "aggregate", NWBIR79 = "aggregate"))
+st_agr(nc)
+data(meuse, package = "sp")
+meuse_sf <- st_as_sf(meuse, coords = c("x", "y"), crs = 28992, agr = "constant")
+st_agr(meuse_sf)
+```
+
+```{r}
+opar = par(mar=rep(0,4))
+plot(meuse_sf)
+```
+
+```{r}
+b0 = st_polygon(list(rbind(c(-1,-1), c(1,-1), c(1,1), c(-1,1), c(-1,-1))))
+b1 = b0 + 2
+b2 = b0 + c(-0.2, 2)
+x = st_sfc(b0, b1, b2)
+a0 = b0 * 0.8
+a1 = a0 * 0.5 + c(2, 0.7)
+a2 = a0 + 1
+a3 = b0 * 0.5 + c(2, -0.5)
+y = st_sfc(a0,a1,a2,a3)
+plot(x, border = 'red')
+plot(y, border = 'green', add = TRUE)
+```
+```{r}
+st_disjoint(x, y)
+st_touches(x, y, sparse = FALSE)
+st_within(x, y, sparse = FALSE)
+st_contains(x, y, sparse = FALSE)
+st_overlaps(x, y, sparse = FALSE)
+st_equals(x, y, sparse = FALSE)
+st_covers(x, y, sparse = FALSE)
+st_covered_by(x, y, sparse = FALSE)
+st_covered_by(y, y, sparse = FALSE)
+st_equals_exact(x, y,0.001, sparse = FALSE)
+```
+
+```{r}
+par(mfrow=c(2,2), mar = c(0,0,1,0))
+plot(x, col = '#ff333388'); 
+plot(y, add=TRUE, col='#33ff3388')
+title("x: red, y: green")
+plot(x, border = 'grey')
+plot(st_difference(st_union(x),st_union(y)), col = 'lightblue', add = TRUE)
+title("difference(x,y)")
+plot(x, border = 'grey')
+plot(st_difference(st_union(y),st_union(x)), col = 'lightblue', add = TRUE)
+title("difference(y,x)")
+plot(x, border = 'grey')
+plot(st_sym_difference(st_union(y),st_union(x)), col = 'lightblue', add = TRUE)
+title("sym_difference(x,y)")
+```
+#### 5.2 & 5.3 spdep & rgdal
+
+Since the `spdep` package was created, spatial weights objects have been constructed as lists with three components and a few attributes, in old-style class listw objects. 
+
+`rgdal` implemented changes in the representation of coordinate reference systems (CRS), and of operations on coordinates.
+```{r}
+library(spdep)
+library(rgdal)
+if (exists("rgdal_extSoftVersion")) rgdal_extSoftVersion()
+```
+
+```{r}
+columbus <- readOGR(system.file("shapes/columbus.shp", package="spData")[1])
+nb_q <- poly2nb(columbus) #poly2nb function defaulting to the queen criterion - entities are neighbours if they share a boundary point.
+col2 <- droplinks(nb_q, 21)
+coords <- coordinates(columbus)
+plot(nb_q, coords, col="grey")
+plot(col2, coords, add=TRUE)
+```
+
+```{r symmetric sparse matrices}
+library(Matrix)
+library(splm)
+nb_B <- nb2listw(col2, style="B", zero.policy=TRUE)
+B <- as(nb_B, "CsparseMatrix")
+all(B == t(B))
+nb_B1 <- mat2listw(as(B, "dgTMatrix"))
+B
+```
+
+PROJ.4. use key-value string. The key-value string is taken as +key=value, where =value could be omitted for some keys, and the definition of each projection is built up from space-separated key-value string, such as +proj=utm +zone=25 +south for Universal Transverse Mercator zone 25 in the southern hemisphere.
+
+```{r}
+library(rgdal)
+library(sp)
+b_pump <- readOGR(system.file("vectors/b_pump.gpkg", package="rgdal"))
+proj4string(b_pump)
+```
+
+```{r}
+if (packageVersion("sp") > "1.4.1") {
+  WKT <- wkt(b_pump)
+} else {
+  WKT <- comment(slot(b_pump, "proj4string"))
+}
+cat(WKT, "\n")
+```
+
+```{r}
+set_transform_wkt_comment(TRUE)
+is2m <- spTransform(b_pump, CRS(SRS_string="EPSG:4326"))
+get_last_coordOp()
+```
+
+```{r}
+system.time(is1m <- spTransform(b_pump, CRS(SRS_string="EPSG:4326")))
+isballpark <- spTransform(b_pump, CRS(SRS_string="EPSG:4326"))
+```
+
+
+
+### Painting maps
+
+#### 5.4 & 5.5 maps & mapdata
+
+`maps` and `mapdata` include country-wise basic map information.
+
+```{r}
+library(maps)
+library(mapdata)
+map("china", col = "red4", ylim = c(18, 54), panel.first = grid())
+title(" 中国地图")
+```
+
+#### 5.6 mapview
+
+```{r}
+library(mapview)
+x <- mapview(is2m, map.type="OpenStreetMap", legend=FALSE) + 
+    mapview(is1m, col.regions="green", legend=FALSE) + 
+    mapview(isballpark, col.regions="red", legend=FALSE)
+x
+```
+
+#### 5.7 ggmap & baidumap
+
+```{r}
+library(baidumap)
+library(ggmap)
+options(baidumap.key = 'EOF2QFTXEDoGLasadWUBpqoi')
+q = getBaiduMap("中央财经大学",width = 400, height = 400, zoom = 18, scale = 2, messaging = F)
+ggmap(q)
+```
+
+```{r}
+library(magrittr)
+library(jsonlite)
+getCoordinate("中央财经大学",output = "json") %>% fromJSON()
+```
+
+```{r}
+getLocation(c(116.3492, 39.96521)) %>% fromJSON()
+```
+
+```{r}
+getPlace("方老大", "杭州")
+```
+
+#### 5.9 REmap
+
+```{r}
+library(REmap)
+options(remap.ak = "EOF2QFTXEDoGLasadWUBpqoi")
+origin = c(rep("上海",4),"柳州", "长沙","南宁")
+destination = c("珠海","厦门","北京","柳州","长沙","上海","上海")
+dat = data.frame(origin,destination)
+out = remap(dat,title = "My route")
+out
+```
+
+```{r}
+library(REmap)
+get_geo_position("中央财经大学")
+```
+
+```{r}
+library(dplyr)
+load("C:/Working_files/project-n/dat/202009/byd.RData")
+byd = byd %>% mutate(weight = ifelse(dealerType=="4S",2,1)) %>% 
+    select(lon, lat, weight) %>%
+    apply(2,as.numeric) %>% 
+    as.data.frame()
+remapH(byd, maptype = "china", minAlpha = 500)
+```
+
+

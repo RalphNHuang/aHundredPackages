@@ -1,0 +1,249 @@
+---
+title: "CW04"
+author: "Ralph_Huang"
+date: "2020/9/2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Text Analysis / Natural Language Processing
+
+In this week, I would try to learn packages related to text. I shall start from basic text cleaning, then segment, and finally modeling.
+
+### String cleaning
+
+In this part, I will introduce `stringr`.
+
+#### 4.1 stringr
+The `stringr` is one of the most frequent-used string cleaning package. I will always use it in the cleaning step.
+
+```{r stringr}
+library(stringr)
+str_c(letters[1:5], " is for", "...") # combine
+string <- ' Why is me? I have worded hardly! '
+str_trim(string, side = 'left') # drop spaces and tabs
+txt <- "I am a little bird"
+str_sub(txt, 1, 4) # cut text according to informed place
+string<-c('ning xiao li','zhang san','zhao guo nan')
+str_count(string,'i') # count pattern frequency
+val <- "abc,123,234,iuuu"
+s1<-str_split(val, ","); s1 #split
+fruit <- c("apple", "banana", "pear", "pinapple") 
+str_subset(fruit, "a$") # return the value
+str_detect(fruit,"a$") # return T/F
+str_match_all(fruit, "[a-b]")
+str_replace_all(fruit, "a", "")
+str_locate(fruit,"a")
+shopping_list <- c("apples 4x4", "bag of flour", "bag of sugar", "milk x2") 
+str_extract_all(shopping_list, "\\b[a-z]+\\b", simplify = TRUE) 
+str_to_title(fruit)
+```
+
+#### 4.2 stringdist
+
+When we want to calculate the similarity of strings, we may use `stringdist`
+
+```{r}
+library(stringdist)
+stringdistmatrix(c("foo","bar","boo"),c("baz","buz"))
+stringdist("ABC","abc")
+```
+
+### Chinese text
+
+Most packages in text mining are designed for English. However, there are still a few packages fitful for Chinese language environment, including: `pinyin`, `RYoudaoTranslate`, and `chinese.misc`.
+
+#### 4.3 pinyin
+
+`pinyin` is a very simple package that translate Chinese into pinyin.
+
+```{r pinyin, warning=FALSE}
+library(pinyin)
+py(str_conv("生条叉烧好过生你啊","GBK"))
+# well it dose take a long time and a giant computing rescource to do it
+```
+
+#### 4.4 RYoudaoTranslate
+
+This package provides a api to Youdao Translate. If we need to translate a giant amount of words, we'd better to apply our own api key.
+
+```{r warning=FALSE}
+library(RYoudaoTranslate)
+apikey = "498375134"
+	keyfrom = "JustForTestYouDao"
+	word = c("youdao", "China", "Homo Sapiens")
+	for( i in word)
+	{
+		Res = youdaoLookUp(i,api=apikey,keyfrom=keyfrom)
+		print(Res)
+	}
+
+
+```
+
+#### 4.5 chinese.misc
+
+`chinese.misc` is a highly automatical package that combined tokenization and dtm construction for Chinese. Therefore, we can format dtm in one step with this package.
+
+```{r warning=FALSE}
+library(chinese.misc)
+a_new='input' #If you want to change folder name, just change this.
+gwd=getwd()
+f=paste(gsub('/$', '', gwd), a_new, sep='/')
+if (dir.exists(f)) stop ('Folder already exists. Please change a name.')
+### first, we shall prepare text documents in the direction
+dir.create(f)
+dir.create(paste(f, 'f1', sep='/'))
+dir.create(paste(f, 'f2', sep='/'))
+x='以事件为选题的数据新闻最常出现在重大新闻事件的报道中。在这类事件中，数据报道可能是媒体精心制作的报道主体，也可能是媒体对事件的整个专题报道中的一个有机组成部分。可预见的重大新闻事件一般多指会议、活动、庆典或赛事，媒体可以把较为充足的时间投入到选题策划中。除了可预见的重大新闻事件以外，更多此类数据新闻的选题是突发新闻事件。近年来，越来越多的媒体将数据新闻运用于突发新闻事件的报道中，大量数据资源的整合和运用为此类新闻报道增添了更多科学性。'
+write.table(x, paste(f, 'f1/d1.txt', sep='/'), row.names=FALSE, col.names=FALSE, quote=FALSE, fileEncoding='UTF-8')
+x='人们对数据可视化的适用范围有着不同观点。例如，有专家认为数据可视化是可视化的一个子类目，主要处理统计图形、抽象的地理信息或概念型的空间数据。现代的主流观点将数据可视化看成传统的科学可视化和信息可视化的泛称，即处理对象可以是任意数据类型、任意数据特性，以及异构异质数据的组合。大数据时代的数据复杂性更高，如数据的流模式获取、非结构化、语义的多重性等。'
+write.table(x, paste(f, 'f1/d2.txt', sep='/'), row.names=FALSE, col.names=FALSE, quote=FALSE, fileEncoding='UTF-8')
+x='政治传播学是政治学与传播学的交叉学科，它是对政治传播现象的总结和政治传播规律的探索和运用，它包括政治传播的结构、功能、本质及技巧等方方面面。它的研究范围包括：政治传播行为，即政治传播的主体、客体及他们之间的相互关系体系；政治传播内容，即对政治的信息处理体系；政治传播途径，即政治符号和传播媒介体系；政治传播环境，即政治传播与相关社会现象；政治传播形态，即政治传播本体的形貌或表现体系。'
+write.table(x, paste(f, 'f2/d3.txt', sep='/'), row.names=FALSE, col.names=FALSE, quote=FALSE, fileEncoding='GB18030')
+ x='改进社会治理方式。坚持系统治理，加强党委领导，发挥政府主导作用，鼓励和支持社会各方面参与，实现政府治理和社会自我调节、居民自治良性互动。坚持依法治理，加强法治保障，运用法治思维和法治方式化解社会矛盾。坚持综合治理，强化道德约束，规范社会行为，调节利益关系，协调社会关系，解决社会问题。坚持源头治理，标本兼治、重在治本，以网格化管理、社会化服务为方向，健全基层综合服务管理平台，及时反映和协调人民群众各方面各层次利益诉求。'
+write.table(x, paste(f, 'f2/d4.txt', sep='/'), row.names=FALSE, col.names=FALSE, quote=FALSE, fileEncoding='GB18030')
+ x='所有这三种活动和它们的相应境况都与人存在的最一般状况相关：出生和死亡，诞生性和有死性。劳动不仅确保了个体生存，而且保证了类生命的延续。工作和它的产物——人造物品，为有死者生活的空虚无益和人寿的短促易逝赋予了一种持久长存的尺度。而行动，就它致力于政治体的创建和维护而言，为记忆，即为历史创造了条件。'
+write.table(x, paste(f, 'd5.txt', sep='/'), row.names=FALSE, col.names=FALSE, quote=FALSE, fileEncoding='UTF-8')
+all_file=dir_or_file(f, special='txt$')
+all_file
+
+```
+#### 4.6 jiebaR
+
+In Chinese text analysis, we have to seg the sentences into words for further analysis. Therefore, we introduce a package to do the wordseg: `jiebaR`. We can also introduce user dictionary for more accurate 
+
+```{r}
+library(jiebaR) #需先加载jiebaR
+all_text=unlist(lapply(all_file, scancn))
+hehe_cutter=worker(write=FALSE) 
+new_user_word(hehe_cutter, c("大数据", "数据新闻"))
+y=seg_file(all_text, from='v', mycutter=hehe_cutter)
+y
+```
+
+```{r }
+dtm=corp_or_dtm(all_file, type='dtm', stop_word='jiebar', mycutter=hehe_cutter) 
+
+```
+```{r}
+x <- lapply(all_file, scancn)
+get_tag_word(x, tag="v", each=TRUE, keep_name=TRUE, only_unique=TRUE)
+```
+
+### vectorize
+
+In order to arrange unstructured text data into structured data, we need to vectorize the text. The most popular and easy way is to combine terms and documents into a matrix.
+In this unit, I will introduce `text2vector` and `tm`.
+
+#### 4.7 tm
+The basic usage of `tm` is to format a corpus, meanwhile, `tm` can also finish basic cleaning job.
+
+```{r}
+library(tm)
+docs<-c("this is a text","And we create a vector.")
+VCorpus(VectorSource(docs))
+
+path = "C:/tech accumulation/aHundredPackages/Rmd/hehe"
+c = VCorpus(DirSource(path, encoding = "UTF-8"))
+c
+
+c = tm_map(c,stripWhitespace)
+c = tm_map(c, removePunctuation)
+dtm = DocumentTermMatrix(c)
+inspect(dtm)
+
+```
+
+#### 4.8 text2vec
+
+```{r warning=FALSE}
+library(text2vec)
+library(dplyr)
+library(stringr)
+auto_review = read.csv("C:/tech accumulation/aHundredPackages/input/_12.csv", sep = "\t")
+
+auto_review = auto_review %>% .[nchar(.$发帖内容)>5 & str_detect(.$品牌论坛名,"车主群")==F,] %>% 
+  mutate(seg = seg_file(.$发帖内容, from = "v", mycutter = hehe_cutter)) %>% 
+  .[str_detect(.$发帖时间, "2019/12/30")==T, ]
+
+
+it = itoken(auto_review$seg, progressbar = F)
+v = create_vocabulary(it)
+v = prune_vocabulary(v, doc_proportion_max = 0.1, term_count_min = 5)
+vectorizer = vocab_vectorizer(v)
+dtm1 = create_dtm(it, vectorizer)
+dtm2 = corp_or_dtm(auto_review$发帖内容, from = "v",
+                   mycutter = hehe_cutter, stop_word = "jiebar", type = "dtm")
+
+
+
+#tcm = create_tcm(it, vectorizer)
+#tfidf = TfIdf$new()
+#data("movie_review")
+#View(movie_review)
+```
+
+### Topic model
+
+Topic model is one of the most important models in Natural Language Processing. It helps us fast describe the main content of each document. There are many packages serve for this kind of models.
+
+#### 4.9 topicmodels
+
+Before we set up our topic model, we shall first clearify how many topics is the most proper. 
+
+```{r topic_num}
+library(topicmodels)
+dtm = dtm2
+rowTotals = apply(dtm, 1, sum)
+dtm = dtm[rowTotals>10,]
+```
+
+This is a package to quickly diagnosis the topic model.
+
+```{r}
+tp = LDA(dtm,5)
+
+get_terms(tp, 20)
+
+```
+
+#### 4.9 topicdoc
+
+```{r topicdoc}
+library(topicdoc)
+topic_diagnostics(tp,dtm)
+```
+
+#### 4.10 tidytext
+
+```{r}
+library(tidytext)
+td_tp = tidy(tp, matrix = "gamma")
+doc_classes <- td_tp %>%
+group_by(document) %>%
+top_n(1) %>%
+ungroup()
+```
+
+```{r}
+td_tp = tidy(tp) %>% filter(beta>0.005) %>% mutate(term = reorder(term, beta))
+head(td_tp)
+```
+
+### visualization
+
+#### wordcloud2
+
+```{r}
+library(wordcloud2)
+seg = segment(auto_review$发帖内容, hehe_cutter)
+#wm = system.file("C:/tech accumulation/aHundredPackages/input/wm.jpg",package = "wordcloud2")
+table(seg) %>% .[order(.,decreasing = T)] %>% wordcloud2()
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

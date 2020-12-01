@@ -1,0 +1,420 @@
+---
+title: "aHundredPackages_CW1"
+author: "Ralph_Huang"
+date: "2020/8/11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = T)
+```
+
+## 1.1 A-Hundred-Packages Campaign
+
+A compaign generated from Chiffon and Ralph, A-Hundred-Packages Campaign will end up with the accumulation of the 100th package. Starting from the packages he knew, Ralph scheduled to revise or learn 10 R packages per week.
+
+Hereby is the packages Ralph will face in the 1st week:
+# data gathering: rvest, readr
+# data cleaning: dplyr, tidyr, tibble
+# modeling: survival, rpart
+# visualizing: ggplot2, ROC
+# other: purrr
+
+## rvest--a basic package for scrawling data
+
+Rvest is one of the packages that I learnt at the very beginning of my R journey. Let's revise it code by code:
+
+Firstly, when we are not sure about the encoding of a webpage, we can guess it:
+
+```{r rvest}
+#install.packages("rvest")
+library(rvest)
+bli = read_html("https://www.bilibili.com/")
+guess_encoding(bli)
+```
+Basically, as long as we can figure out the CSS node of the info we want, we can acquire the info. 
+
+```{r rvest}
+bli %>% html_nodes('div.info-box') %>% html_text()
+bli %>% html_nodes('div.info-box a') %>% html_attr(name = "href") %>% paste0("https", .)
+```
+
+## readr--a much-faster solution to import data
+
+readr is fast because it try to guess the format of each column of the data before reading, very useful when facing a giant data. We can use the `guess_` functions to review.
+
+```{r readr}
+guess_parser("2010-10-01")
+guess_parser("15:01")
+guess_parser(c("TRUE", "FALSE"))
+guess_parser(c("1", "5", "9"))
+guess_parser(c("12,352,561"))
+```
+
+
+The read_ functions in readr will automatically deal with the file input, i.e.,
+file ending in .gz, .zip etc. will be automatically uncompressed;
+files starting with http://, https:// will be automatically downloaded.
+
+```{r readr}
+#install.packages("readr")
+library(readr)
+read_csv(readr_example("mtcars.csv.zip"))
+read_csv("https://github.com/tidyverse/readr/raw/master/inst/extdata/mtcars.csv")
+```
+What's more, we can use `clipboard()` to read info from the system clipboard.
+Just try to copy sth. and run the codes below:
+```{r readr}
+read_delim(clipboard(), delim = " ")
+```
+
+```{r readr}
+ff <- tempfile()
+cat(file = ff, "123456", "987654", sep = "\n")
+read_fwf(ff, widths = c(1,2,3)) 
+```
+
+## 1.3 & 1.4 factoextra & FactoMineR
+
+Factoextra is a user-friendly package to visualize multivariate data analysis.
+
+Principal Component Analysis (PCA), which is used to summarize the information contained in a continuous (i.e, quantitative) multivariate data by reducing the dimensionality of the data without loosing important information.
+
+```{r factoextra & FactoMineR}
+library(factoextra)
+data("decathloon2")
+df = decathlon2[1:23,1:10]
+library(FactoMineR)
+res.pca = PCA(df, graph = F)
+get_eig(res.pca)
+```
+
+```{r factoextra & FactoMineR}
+fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 50))
+
+```
+
+
+```{r factoextra & FactoMineR}
+fviz_pca_var(res.pca, col.var="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Avoid text overlapping
+             )
+var <- get_pca_var(res.pca)
+```
+
+PCA can also used to set weight for different variables.
+The basic methodology is to combine the coefficient in var[['cos2']] with the percentages each dim variable can cover.
+
+```{r factoextra & FactoMineR}
+index_cal = function(df){
+  library(factoextra)
+  train.pca = PCA(X = df, scale.unit = T, graph = F)
+  train.val = get_eigenvalue(train.pca)
+  train.val = as.data.frame(train.val)
+  n = nrow(train.val[train.val$cumulative.variance.percent<85,])
+  train.pca = PCA(X = df, scale.unit = T, graph = F, ncp = n)
+  train.val = get_eigenvalue(train.pca)
+  ele_mtx = get_pca_var(train.pca)[['cos2']]
+  t = train.val[1:n,1]
+  v = train.val[1:n,2]
+  weight = apply(v*ele_mtx ,1, sum) / sum(v)
+  weight = weight/sum(weight)
+  index = round(apply(weight*scale(df), 1, sum),2)
+  df = cbind(df, index)
+  #index = weight
+  print(weight)
+  return(df)
+}
+
+index_cal(df)
+```
+
+Correspondence Analysis (CA), which is an extension of the principal component analysis suited to analyse a large contingency table formed by two qualitative variables (or categorical data).
+
+```{r factoextra & FactoMineR}
+library("FactoMineR")
+res.ca <- CA(housetasks, graph = FALSE)
+fviz_ca_biplot(res.ca, repel = TRUE)
+```
+```{r factoextra & FactoMineR}
+get_ca(res.ca)[['cos2']]
+```
+
+Multiple correspondence analysis (for more than 2 variables)
+
+```{r factoextra & FactoMineR}
+library(FactoMineR)
+data(poison)
+res.mca <- MCA(poison, quanti.sup = 1:2,
+              quali.sup = 3:4, graph=FALSE)
+fviz_contrib(res.mca, choice ="ind", axes = 1, top = 20)
+```
+
+# Clustering in R
+
+There are different methodology for clustering, e.g. K-means, and hierarchical clustering, both of which are only applicable to continuous variables.
+
+```{r packages for clustering}
+install.packages("factoextra")
+install.packages("cluster")
+install.packages("magrittr")
+library("cluster")
+library("factoextra")
+library("magrittr")
+library(dplyr)
+```
+
+Before conduct clustering, we need to estimate how much clusters will be the best
+```{r clustering experiment}
+data("USArrests")
+
+my_data <- USArrests %>%
+  na.omit() %>%          # Remove missing values (NA)
+  scale()                # Scale variables
+
+set.seed(888)
+library("factoextra")
+fviz_nbclust(my_data, kmeans, method = "gap_stat")
+```
+
+As informed in the graph, the bet number of clusters is 2.
+
+```{r clustering experiment}
+set.seed(123)
+km.res <- kmeans(my_data, 2, nstart = 25)
+library("factoextra")
+fviz_cluster(km.res, data = my_data,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+```
+Hereby, I can use NbClust to find out the best number of the clusters
+```{r clustering experiment}
+library("NbClust")
+res.nbclust <- USArrests %>%
+  scale() %>%
+  NbClust(distance = "euclidean",
+          min.nc = 2, max.nc = 10, 
+          method = "complete", index ="all")
+fviz_nbclust(res.nbclust, ggtheme = theme_minimal())
+```
+
+
+After conducting PCA, we can go further with hierarchical clustering, naming, hierarchical clustering of principal components. Then, the HCPC is applied on the result of PCA.
+
+```{r clustering experiment}
+library(FactoMineR)
+# Compute PCA with ncp = 3
+res.pca <- PCA(USArrests, ncp = 3, graph = FALSE)
+# Compute hierarchical clustering on principal components
+res.hcpc <- HCPC(res.pca, graph = FALSE)
+head(res.hcpc$data.clust, 10)
+```
+## PLEASE GO FURTHER ON THE ALGORITHM OF CLUSTERING !!!
+
+## 1.5 & 1.6 dplyr & tidyr
+
+In these days, I do feel dplyr and tidyr extremely useful in cleaning and rearranging data.
+The pipeline makes coding short and tidy; the easy knowing function and grammar equip me with powerful tools to beautify the data.
+
+# Pipeline: hand over the outcome to next function. 
+
+If we want to use pipeline, we can turn to `magrittr`
+
+The usage of pipeline is very easy and clear:
+`x %>% f` is equivalent to f(x)
+`x %>% f(y)` is equivalent to f(x, y)
+`x %>% f %>% g %>% h` is equivalent to h(g(f(x)))
+We can use `.` to adjust the position of the input.
+`x %>% f(y, .)` is equivalent to f(y, x)
+`x %>% f(y, z = .)` is equivalent to f(y, z = x)
+`x %>% f(y = nrow(.), z = ncol(.)) `is equivalent to f(x, y = nrow(x), z = ncol(x))
+If we want to get rid of the automatic input, we can use `{}` to tell the system:
+`x %>% {f(y = nrow(.), z = ncol(.))}` is equivalent to f(y = nrow(x), z = ncol(x))
+
+```{r dplyr}
+if(F){
+  install.packages("nycflights13")
+  install.packages("dplyr")
+  install.packages("tidyr")
+}
+
+library(nycflights13)
+library(dplyr)
+library(tidyr)
+
+# Let's just imagine that, we want to know in Jan. 2013, how many flights each carrier sent per day, and how fast the flights of those carriers took on average. We will need dplyr and tidyr
+
+query = flights %>% 
+  na.omit() %>% 
+  mutate(speed = distance/(air_time/60)) %>% 
+  filter(month == 1) %>%
+  select(day, carrier, speed) %>% 
+  group_by(day, carrier) %>% 
+  summarise( avg_speed = mean(speed))
+
+```
+
+However, the long data is not as clear as the wide data in this case. Therefore, we can use `tidyr` to turn long data to wide data.
+
+
+
+
+
+
+<!--chapter:end:CW01.Rmd-->
+
+---
+title: "CW02_b"
+author: "Ralph_Huang"
+date: "2020/8/18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Visualization Module
+
+In this week, I will learn the ggplot2 ecosystem systematically. Starting from the basic grammar of ggplot2, I will deep dive into the branches so that I will be able to draw pictures in the way I wish.
+
+Now let's start from ggplot2. 
+
+## ggplot2
+
+ggplot2 is a system for declaratively creating graphics, based on The Grammar of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical primitives to use, and it takes care of the details.
+
+In order to make sure these codes can be run anywhere, I will try to use the inner data of R:`mpg`
+
+```{r mpg}
+library(ggplot2)
+head(unique(mpg))
+```
+
+### Points
+
+The scatterplot shows the real relations between two virables. In ggplot2, we can use `geom_point` to draw this kind of diagram.
+In ggplot2, we first use `ggplot()` to import dataset, and then, use `geom_function` to tell the system what we want.
+In the `aes()` function, we can tell the system which columns of the whole dataset we want to visualize. We have many options to illustrate the data, e.g., `color = `, `shape = `, `alpha = `, `shape = ` ...
+However, if we want to set color for the whole picture, the `color = ` should be written outside `aes()`.
+
+```{r point}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy, color = class))
+```
+For categorical variables, we can use facets to split the plots.
+
+```{r facets}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy)) + 
+  facet_wrap(drv~cyl)
+```
+
+In most cases, a smoothed line will help us know the relationship between variables more clearly, as shown below (using `geom_smooth`)
+
+```{r smooth}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point(mapping = aes(color = class)) + 
+  geom_smooth(data = filter(mpg, class == "subcompact"), se = FALSE)
+```
+
+### bar charts
+
+We can use `geom_bar()` to draw this most frequently-used plot. In this function, if we do not set y value in `aes()`, the system will automatically count the frequency of the x-value or the value we specify in stat_.
+
+```{r bar}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = stat(prop), group = 1))
+```
+
+The statistical transformation function `stat_` will help me customize the data.
+
+```{r stat}
+# Scale tallest bin to 1
+ggplot(mpg, aes(displ)) +
+  geom_histogram(aes(y = after_stat(count / max(count))))
+```
+
+For bar plot, we have some other parameers to adjust:
+`position = ` is used to adjust the arrangement of bars plot ("identity", "fill", "dodge", "jitter")
+`fill = ` is used to adujst the rule to paint the bars, (if `fill = NA`, there will be no fill)
+```{r bar color}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "fill")
+```
+
+
+What's more, we can use `stat_summary` to inspect the overall profile of data.
+
+```{r stat_summary}
+ggplot(data = diamonds) + 
+  stat_summary(
+    mapping = aes(x = cut, y = depth),
+    fun.ymin = min,
+    fun.ymax = max,
+    fun.y = median
+  )
+```
+
+### coordinate
+
+Sometimes, we want to turn the plots into another direction, in which case we can ues `coord_flip` to turn horizontal to vertical. Besides, `coord_polar()` can help us turn bar plots into pie charts.
+
+```{r coordinate}
+bar <- ggplot(data = diamonds) + 
+  geom_bar(
+    mapping = aes(x = cut, fill = cut), 
+    show.legend = FALSE,
+    width = 1
+  ) + 
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+bar + coord_polar()
+```
+
+
+### The layered grammar of graphics
+
+```{r echo=FALSE}
+ggplot(data = <DATA>) + 
+  <GEOM_FUNCTION>(
+     mapping = aes(<MAPPINGS>),
+     stat = <STAT>, 
+     position = <POSITION>
+  ) +
+  <COORDINATE_FUNCTION> +
+  <FACET_FUNCTION>
+```
+
+### Label, Scale, Zooming, and Theme
+
+```{r}
+class_avg <- mpg %>%
+  group_by(class) %>%
+  summarise(
+    displ = median(displ),
+    hwy = median(hwy)
+  )
+
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  ggrepel::geom_label_repel(aes(label = class),
+    data = class_avg,
+    size = 6,
+    label.size = 0,
+    segment.color = NA
+  ) +
+  geom_point() +
+  theme(legend.position = "bottom")+
+  guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))+
+  scale_x_continuous(breaks = seq()) +
+  scale_y_continuous(breaks = seq(15, 40, by = 5)) +
+  scale_colour_discrete()
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+<!--chapter:end:CW02.Rmd-->
+

@@ -1,0 +1,19 @@
+```{r}
+library(dplyr)
+load("C:/Working_files/project-n/dat/202009/byd.RData")
+byd = byd %>% mutate(weight = ifelse(dealerType=="4S",2,1)) %>% 
+    select(lon, lat, weight) %>%
+    apply(1,as.numeric) %>% 
+    as.data.frame()
+remapH(byd, maptype = "china", minAlpha = 500)
+```
+
+```{r}
+library(REmap)
+options(remap.ak = "EOF2QFTXEDoGLasadWUBpqoi")
+origin = c(rep("上海",4),"柳州", "长沙","南宁")
+destination = c("珠海","厦门","北京","柳州","长沙","上海","上海")
+dat = data.frame(origin,destination)
+out = remap(dat,title = "My route")
+out
+```

@@ -1,0 +1,323 @@
+---
+title: "CW06"
+author: "Ralph_Huang"
+date: "2020/9/15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Network Analysis
+
+In this week, I shall try to learn sth. related to Network.
+
+### Network data format
+
+At the very beginning, we shall clearify the format of network data. In this part, I will introduce `igraph` and `network`, which share the same format of data.
+Please kindly refer to 'https://cran.r-project.org/web/packages/network/vignettes/networkVignette.pdf'
+
+#### 6.1 igraph
+
+```{r ring}
+library(igraph)
+print_all(make_ring(10))
+print_all(make_ring(10, directed = TRUE, mutual = TRUE))
+```
+
+```{r graph}
+el <- matrix( c("foo", "bar", "bar", "foobar"), nc = 2, byrow = TRUE)
+graph_from_edgelist(el)
+
+## from data frame (2 data frames indicate vertices and relatioinships, repectively)
+actors <- data.frame(name=c("Alice", "Bob", "Cecil", "David",
+                            "Esmeralda"),
+                     age=c(48,33,45,34,21),
+                     gender=c("F","M","F","M","F"))
+relations <- data.frame(from=c("Bob", "Cecil", "Cecil", "David",
+                               "David", "Esmeralda"),
+                        to=c("Alice", "Bob", "Alice", "Alice", "Bob", "Alice"),
+                        same.dept=c(FALSE,FALSE,TRUE,FALSE,FALSE,TRUE),
+                        friendship=c(4,5,5,2,1,1), advice=c(4,5,5,4,2,3))
+g <- graph_from_data_frame(relations, directed=TRUE, vertices=actors)
+print(g, e=TRUE, v=TRUE)
+
+## from adjacency matrix (use mode to define the value of lines)
+adjm <- matrix(sample(0:5, 100, replace=TRUE,
+                      prob=c(0.9,0.02,0.02,0.02,0.02,0.02)), nc=10)
+g2 <- graph_from_adjacency_matrix(adjm, weighted=TRUE, mode = "plus")
+g2
+V(g2)## vertices
+E(g2)## edges
+```
+
+```{r }
+g <- make_ring(10) %>%
+  set_vertex_attr("color", value = "red") %>%
+  set_vertex_attr("label", value = letters[1:10])
+vertex_attr(g, "label")
+vertex_attr(g)
+plot(g)
+```
+
+```{r application}
+library(igraph)
+library(openxlsx)
+library(magrittr)
+library(dplyr)
+m = openxlsx::read.xlsx("C:/tech accumulation/aHundredPackages/input/membership.xlsx", 
+              sheet = 1)
+m$推荐人手机号码[m$推荐人名称=='厂家'] = 100
+m = m %>% left_join(select(.,会员Id, 手机号码), by = c("推荐人手机号码"="手机号码")) %>% 
+  select(from = 会员Id.x, to = 会员Id.y)
+m$to[is.na(m$to)] = 0
+g3 = graph_from_data_frame(m, directed = T, vertices = unique(c(m$from, m$to)))
+chain = character()
+for (i in 1:nrow(m)) {
+  if(m$to[i]==0)
+    chain[i] = paste0(m[i,],collapse =  "|")
+  else
+  {
+    t = as.numeric(m[i,])
+    while (t[length(t)]!=0) {
+      tmp = m[m$from==t[length(t)],]
+      t = c(t, tmp[1,2])
+    }
+    chain[i] = paste0(t, collapse = "|")
+  }
+}
+
+chain
+
+```
+
+```{r}
+path = "C:/tech accumulation/aHundredPackages/input/subway/"
+files = path %>% paste0(dir(path))
+df = data.frame()
+for (i in 1:length(files)) {
+  tmp = read.table(files[i])[,1] %>% 
+    {data.frame(.[1:(length(.)-1)],.[2:length(.)])}
+  colnames(tmp) = c("from", "to")
+  df = rbind(df, tmp)
+}
+g4 = graph_from_data_frame(df, directed = F, vertices = unique(c(df$from,df$to)))
+sort(page_rank(g4)$vector, decreasing = T)[1:30]
+
+```
+
+#### 6.2 network
+
+In `network`, the format of vertices and edges and the attribute of network has been defined.
+
+```{r}
+library(network)
+data('flo')
+### There are many network input formats: (Bipartite) Adjacency Matrix, Edge List and so on
+nflo = network(flo, directed = FALSE)
+print(nflo)
+add.vertices(nflo, 2)
+network.vertex.names(nflo)[17:18] = c("alpha", "beta")
+nflo[,]
+#add.edge(nflo, c(3,5),c(4,4)) This line will cause the explosion of R
+```
+
+```{r attribute}
+nflo %n% 'do' = c(1:8)
+nflo %v% 'cl' = rep("zeta", nrow(flo[,]))
+nflo %e% 'weight'  = rnorm(network.edgecount(nflo), 2,3)
+list.network.attributes(nflo)
+nflo%e% 'weight'
+get.edge.value(nflo, 'weight')
+```
+
+#### 6.3 sna
+
+`sna` provided basic tools for network analysis
+
+```{r sna}
+library(sna)
+load("C:/tech accumulation/aHundredPackages/input/introToSNAinR.Rdata")
+eflo<-as.edgelist.sna(flo) # Coerce flo to an sna edgelist
+attr(eflo,"n") # How many vertices are there?
+attr(eflo,"vnames")
+```
+
+```{r basic visualization}
+gplot(contig_1993, gmode="graph",displaylabels=TRUE,label.cex=0.5,label.col="blue")
+```
+```{r T&F}
+components(mids_1993, connected="weak")
+is.isolate(mids_1993, which(mids_1993%v%"vertex.names"=="BHM"))
+contig.dist<-geodist(contig_1993)
+contig.dist$gdist[1:10,1:10]
+```
+
+```{r diagnosis}
+gden(mids_1993)
+centralization(contig_1993, evcent)
+dyad.census(mids_1993)
+```
+
+### Network related modeling
+
+#### 6.4 statnet & statnetWeb
+
+The `statnetWeb` provides a UI for network analyzing
+
+```{r}
+library(statnet)
+library(statnetWeb)
+#run_sw()
+```
+
+Refer to 'https://github.com/statnet/Workshops/wiki'
+
+#### 6.5 ergm
+
+```{r ergm data prep.}
+library(ergm)
+data(florentine)
+plot(flomarriage)
+```
+
+```{r ergm modeling}
+flomodel.01 <- ergm(flomarriage~edges)
+summary(flomodel.01)
+```
+
+```{r}
+fit <- ergm(flobusiness~edges+degree(1))
+summary(fit)
+par(c(1,2))
+plot(flobusiness)
+```
+
+```{r}
+mcmc.diagnostics(fit)
+```
+MCMC diagnostics shown here are from the last round of simulation, prior to computation of final parameter estimates. Because the final estimates are refinements of those used for this simulation run, these diagnostics may understate model performance. To directly assess the performance of the final model on in-model statistics, please use the GOF command: gof(ergmFitObject, GOF=~model).
+
+```{r}
+flomodel.03 <- ergm(flomarriage~edges+nodecov('wealth'))
+wealth <- flomarriage %v% 'wealth' # %v% references vertex attributes
+flomodel.03.sim <- simulate(flomodel.03,nsim=10)
+plot(flomodel.03.sim[[1]], 
+     label= flomodel.03.sim[[1]] %v% "vertex.names",
+     vertex.cex = (flomodel.03.sim[[1]] %v% "wealth")/25)
+```
+
+```{r}
+library("ergm.count")
+library("ergm.rank")
+library("latentnet")
+```
+
+```{r}
+data(samplk)
+samplk.tot.m <- as.matrix(samplk1) + as.matrix(samplk2) + as.matrix(samplk3)
+samplk.tot <- as.network(samplk.tot.m, directed = TRUE, matrix.type = "a", ignore.eval = FALSE, 
+    names.eval = "nominations"  # Important!
+)
+samplk.tot %v% "group" <- samplk1 %v% "group" 
+as.matrix(samplk.tot, attrname = "nominations")[1:5, 1:5] #view attributes
+
+```
+
+```{r}
+valmat <- as.matrix(samplk.tot, attrname = "nominations")  #Pull the edge values
+samplk.ecol <- matrix(rgb(0, 0, 0, valmat/3), nrow = network.size(samplk.tot))
+plot(samplk.tot, edge.col = samplk.ecol, usecurve = TRUE, edge.curve = 1e-04, 
+     displaylabels = TRUE, 
+    vertex.col = as.factor(samplk.tot %v% "group"), edge.lwd = valmat^2)
+```
+
+#### 6.6 Modeling dyad-dependent interaction counts using `ergm.count`
+
+```{r}
+samplk.tot.nm <- ergm(samplk.tot ~ sum + nodematch("group", diff = TRUE, form = "sum"), 
+    response = "nominations", reference = ~Binomial(3))
+mcmc.diagnostics(samplk.tot.nm)
+```
+
+```{r}
+summary(samplk.tot.nm)
+```
+
+#### 6.7 Modeling ordinal relational data using `ergm.rank`
+```{r}
+data(newcomb)
+newc.fit1 <- ergm(newcomb[[1]] ~ rank.nonconformity + rank.nonconformity("localAND") + 
+    rank.deference, response = "descrank", reference = ~CompleteOrder, control = control.ergm(MCMLE.trustregion = 1000, 
+    MCMC.burnin = 4096, MCMC.interval = 32, CD.conv.min.pval = 0.05), eval.loglik = FALSE)
+summary(newc.fit1)
+```
+
+#### 6.8 Latent space models with non-binary response with `latentnet`
+
+```{r}
+samplk.d2G3 <- ergmm(samplk.tot ~ euclidean(d = 2, G = 3), verbose = TRUE)
+samplk.d2G3r <- ergmm(samplk.tot ~ euclidean(d = 2, G = 3) + rreceiver, verbose = TRUE)
+par(mfrow = c(1, 2))
+# Extract a clustering
+Z.K.ref <- summary(samplk.d2G3, point.est = "pmean")$pmean$Z.K
+# Plot one model, saving positions, using Z.K.ref to set reference clustering.
+Z.ref <- plot(samplk.d2G3, pie = TRUE, Z.K.ref = Z.K.ref)
+# Plot the other model, using Z.ref and Z.K.ref to ensure similar orientation and
+# coloring.
+plot(samplk.d2G3r, rand.eff = "receiver", pie = TRUE, Z.ref = Z.ref, Z.K.ref = Z.K.ref)
+```
+
+#### 6.9 ergm.ego
+
+```{r}
+#install.packages('ergm.ego')
+library(ergm.ego)
+data("faux.mesa.high")
+mesa <- faux.mesa.high
+mesa.ego <- as.egodata(mesa) # Generates warning because there are no vertex IDs.
+par(mfrow=c(1,2))
+barplot(table(mesa.ego$egos$Race, exclude=NULL)/nrow(mesa.ego$egos),
+        main="Ego Race Distn", ylab="percent",
+        ylim = c(0,0.5))
+barplot(table(mesa.ego$alters$Race, exclude=NULL)/nrow(mesa.ego$alters),
+        main="Alter Race Distn", ylab="percent",
+        ylim = c(0,0.5))
+```
+
+```{r}
+fit.deg0 <- ergm.ego(mesa.ego ~ edges + degree(0), control=control.ergm.ego(ppopsize=1000))
+summary(fit.deg0)
+```
+
+
+### Visualization
+
+#### 6.10 animation with `ndtv`
+
+```{r}
+library(ndtv)
+data(McFarland_cls33_10_16_96)
+slice.par<-list(start=0,end=30,interval=2.5,
+  aggregate.dur=0,rule="latest")
+#compute.animation(cls33_10_16_96,
+#  slice.par=slice.par,animation.mode='MDSJ')
+#render.animation(cls33_10_16_96,
+#  displaylabels=FALSE,vertex.cex=1.5)
+#ani.replay()
+```
+
+#### 6.11 visNetwork
+
+```{r}
+library(visNetwork)
+library(rpart)
+data("solder")
+res <- rpart(Opening~., data = solder, control = rpart.control(cp = 0.00005))
+visTree(res, height = "800px", nodesPopSize = TRUE, minNodeSize = 10, 
+        maxNodeSize = 30, width = "100%")
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

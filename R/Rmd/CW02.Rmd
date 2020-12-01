@@ -1,0 +1,421 @@
+---
+title: "CW02_b"
+author: "Ralph_Huang"
+date: "2020/8/18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+What I need to deep dive:
+1. 概率密度图
+2. `geom_smooth` can choose the algorithm of smooth
+3. violin plot
+4. The
+
+
+### Visualization Module
+
+In this week, I will learn the ggplot2 ecosystem systematically. Starting from the basic grammar of ggplot2, I will deep dive into the branches so that I will be able to draw pictures in the way I wish.
+
+Now let's start from ggplot2. 
+
+## ggplot2
+
+ggplot2 is a system for declaratively creating graphics, based on The Grammar of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical primitives to use, and it takes care of the details.
+
+In order to make sure these codes can be run anywhere, I will try to use the inner data of R:`mpg`
+
+```{r mpg}
+library(ggplot2)
+head(unique(mpg))
+```
+
+### Points
+
+The scatterplot shows the real relations between two virables. In ggplot2, we can use `geom_point` to draw this kind of diagram.
+In ggplot2, we first use `ggplot()` to import dataset, and then, use `geom_function` to tell the system what we want.
+In the `aes()` function, we can tell the system which columns of the whole dataset we want to visualize. We have many options to illustrate the data, e.g., `color = `, `shape = `, `alpha = `, `shape = ` ...
+However, if we want to set color for the whole picture, the `color = ` should be written outside `aes()`.
+
+```{r point}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy, color = class))
+```
+For categorical variables, we can use facets to split the plots.
+
+```{r facets}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy)) + 
+  facet_wrap(drv~cyl)
+```
+
+In most cases, a smoothed line will help us know the relationship between variables more clearly, as shown below (using `geom_smooth`)
+
+```{r smooth}
+library(dplyr)
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point(mapping = aes(color = class)) + 
+  geom_smooth(data = filter(mpg, class == "subcompact"), se = FALSE)
+```
+
+### bar charts
+
+We can use `geom_bar()` to draw this most frequently-used plot. In this function, if we do not set y value in `aes()`, the system will automatically count the frequency of the x-value or the value we specify in stat_.
+
+```{r bar}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = stat(prop), group = 1))
+```
+
+The statistical transformation function `stat_` will help me customize the data.
+
+```{r stat}
+# Scale tallest bin to 1
+ggplot(mpg, aes(displ)) +
+  geom_histogram(aes(y = after_stat(count / max(count))))
+```
+
+For bar plot, we have some other parameers to adjust:
+`position = ` is used to adjust the arrangement of bars plot ("identity", "fill", "dodge", "jitter")
+`fill = ` is used to adujst the rule to paint the bars, (if `fill = NA`, there will be no fill)
+```{r bar color}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "fill")
+```
+
+
+What's more, we can use `stat_summary` to inspect the overall profile of data.
+
+```{r stat_summary}
+ggplot(data = diamonds) + 
+  stat_summary(
+    mapping = aes(x = cut, y = depth),
+    fun.ymin = min,
+    fun.ymax = max,
+    fun.y = median
+  )
+```
+
+### coordinate
+
+Sometimes, we want to turn the plots into another direction, in which case we can ues `coord_flip` to turn horizontal to vertical. Besides, `coord_polar()` can help us turn bar plots into pie charts.
+
+```{r coordinate}
+bar <- ggplot(data = diamonds) + 
+  geom_bar(
+    mapping = aes(x = cut, fill = cut), 
+    show.legend = FALSE,
+    width = 1
+  ) + 
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+bar + coord_polar()
+```
+
+
+### The layered grammar of graphics
+
+
+
+
+```r
+ggplot(data = <DATA>) + 
+  <GEOM_FUNCTION>(
+     mapping = aes(<MAPPINGS>),
+     stat = <STAT>, 
+     position = <POSITION>
+  ) +
+  <COORDINATE_FUNCTION> +
+  <FACET_FUNCTION>
+```
+### Label, Scale, Zooming, and Theme
+
+```{r}
+class_avg <- mpg %>%
+  group_by(class) %>%
+  summarise(
+    displ = median(displ),
+    hwy = median(hwy)
+  )
+
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  ggrepel::geom_label_repel(aes(label = class),
+    data = class_avg,
+    size = 6,
+    label.size = 0,
+    segment.color = NA
+  ) +
+  geom_point() +
+  theme(legend.position = "bottom")+
+  guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))+
+  scale_x_continuous(breaks = seq()) +
+  scale_y_continuous(breaks = seq(15, 40, by = 5)) +
+  scale_colour_discrete()
+```
+
+
+## ggplot2 ecosystem
+
+There are many packages that expand the function of ggplot2. We can find them in the gallery: https://exts.ggplot2.tidyverse.org/gallery/
+
+### gganimate
+
+This is the most popular package in ggplot ecosystem. When the pictures start moving, they become much cooler.
+
+gganimate extends the grammar of graphics as implemented by ggplot2 to include the description of animation. It does this by providing a range of new grammar classes that can be added to the plot object in order to customise how it should change with time.
+
++ `transition_*()` defines how the data should be spread out and how it relates to itself across time.
++ `view_*()` defines how the positional scales should change along the animation.
++ `shadow_*()` defines how data from other points in time should be presented in the given point in time.
++ `enter_*()/exit_*()` defines how new data should appear and how old data should disappear during the course of the animation.
++ `ease_aes()` defines how different aesthetics should be eased during transitions.
+
+```{r animate_frame}
+#install.packages("gifski")
+library(gifski)
+library(gganimate)
+
+ggplot(mtcars, aes(factor(cyl), mpg)) +
+  geom_boxplot() +
+  # Here comes the gganimate code
+  transition_states(
+    gear, # the classification variables
+    transition_length = 2,
+    state_length = 1
+  ) +
+  enter_fade() +
+  exit_shrink() +
+  ease_aes('sine-in-out')
+```
+Well, it seems that this function will export a series of pictures frame by frame. If we want to show the animate or save the animate, we may try codes below:
+
+```{r animate}
+#install.packages("gapminder")
+library(gapminder)
+p = ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, colour = country)) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_colour_manual(values = country_colors) +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  facet_wrap(~continent) +
+  # Here comes the gganimate specific bits
+  labs(title = 'Year: {frame_time}', x = 'GDP per capita', y = 'life expectancy') +
+  transition_time(year) +
+  ease_aes('linear')
+#animate(p, renderer = ffmpeg_renderer())
+animate(p)
+```
+#### gifski
+
+Finding out that merely run the gganimate will return a series of pictures, I imported `gifski` to turn pictures into gif animate. This is a extremely simple package that offer api to the gifski software to realize the conversion.
+
+```{r gifski}
+
+png = dir(getwd())
+png = png[grepl("png",png)]
+gifski(png, gif_file = "demo.gif", width = 480, height = 480)
+```
+
+### esquisse
+
+Sometimes, we find that visualize data by coding is very complex. However, with **esquisse**, we will never be bothered by basic visualization
+
+```{r esquisse}
+if(F){
+  install.packages("esquisse")
+  library(esquisse)
+  esquisser()
+}
+```
+
+### Make plots more colorful
+
+There is no doubt that we are able to draw beautiful plots with ggplot2. However, it takes a lot to set the parameters in order to beautify the plots. Therefore, masters of perfectly designed themes will be useful to improve the efficiency. 
+
+#### hrbrthemes
+
+This is a very focused package that provides typography-centric themes and theme components for ggplot2.
+
+> `theme_` functions are used to set themes
+> `scale` functions are similar with the scale functions of ggplot2
+> `font` functions are used to set fonts
+
+```{r import hrbr}
+if(F){
+  install.packages("hrbrthemes")
+}
+library(dplyr)
+library(hrbrthemes)
+update_geom_font_defaults(font_rc_light)
+
+count(mpg, class) %>% 
+  mutate(n=n*2000) %>% 
+  arrange(n) %>% 
+  mutate(class=factor(class, levels=class)) %>% 
+  ggplot(aes(class, n)) +
+  geom_col() +
+  geom_text(aes(label=scales::comma(n)), hjust=0, nudge_y=2000) +
+  scale_y_comma(limits=c(0,150000)) +
+  coord_flip() +
+  labs(x="Fuel efficiency (mpg)", y="Weight (tons)",
+       title="Seminal ggplot2 column chart example with commas",
+       subtitle="A plot that is only useful for demonstration purposes, esp since you'd never\nreally want direct labels and axis labels",
+       caption="Brought to you by the letter 'g'") + 
+  theme_ipsum_rc(grid="X")
+
+```
+
+#### ggtech
+
+This is one of my favorite packages when I was in college. I do like the airbnb theme. Besides, it also has Google, Facebook, Twitter themes.
+
+```{r airbnb}
+#devtools::install_github("ricardo-bion/ggtech", dependencies=TRUE)
+library(ggtech)
+d2 <- data.frame(x = c(1:4, 3:1), y=1:7)
+
+d <- qplot(carat, data = diamonds[diamonds$color %in%LETTERS[4:7], ], geom = "histogram", bins=30, fill = color)
+d + theme_tech(theme="airbnb") + 
+  scale_fill_tech(theme="airbnb") + 
+  labs(title="Airbnb theme", 
+       subtitle="now with subtitles for ggplot2 >= 2.1.0")
+
+```
+
+### Rearrange the graphs
+
+Hereby, I will introduce two package to rearrange the graphs.
+
+#### ggrepel
+
+Sometimes, we want to add labels for some or all points illustrated in the graph. However, the overlapping labels make us annoyed. This is when ggrepel, a package that help rearrange the labels automatically, works perfectly.
+
+The main functions in ggrepel are `geom_label_repel` and `geom_text_repel`
+
+```{r ggrepel}
+#install.packages("ggrepel")
+#install.packages("gridExtra")
+library(ggrepel)
+library(gridExtra)
+
+set.seed(42)
+
+p <- ggplot(mtcars, aes(y = wt, x = 1, label = rownames(mtcars))) +
+  geom_point(color = "red") +
+  ylim(1, 5.5) +
+  theme(
+    axis.line.x  = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x  = element_blank(),
+    axis.title.x = element_blank(),
+    plot.title   = element_text(hjust = 0.5)
+  )
+
+p1 <- p +
+  xlim(1, 1.375) +
+  geom_text_repel(
+    nudge_x      = 0.15,
+    direction    = "y",
+    hjust        = 0,
+    segment.size = 0.2
+  ) +
+  ggtitle("hjust = 0")
+
+p2 <- p + 
+  xlim(1, 1.375) +
+  geom_text_repel(
+    nudge_x      = 0.2,
+    direction    = "y",
+    hjust        = 0.5,
+    segment.size = 0.2
+  ) +
+  ggtitle("hjust = 0.5 (default)")
+
+p3 <- p +
+  xlim(0.25, 1) +
+  scale_y_continuous(position = "right") +
+  geom_text_repel(
+    nudge_x      = -0.35,
+    direction    = "y",
+    hjust        = 1,
+    segment.size = 0.2
+  ) +
+  ggtitle("hjust = 1")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+
+
+```
+
+#### gridExtra
+
+The package gridExtra can not only put multiple graphs together, but also inlay one small graph into another big graph
+
+```{r gridExtra}
+g <- ggplotGrob(qplot(1, 1) +
+      theme(plot.background = element_rect(colour = "black")))
+qplot(1:10, 1:10) +
+  annotation_custom(
+    grob = g,
+    xmin = 1, xmax = 5, ymin = 5, ymax = 10
+  ) 
+```
+
+### Other kind of pics
+
+Other than bar, pie, line, point, hist... There are many other useful graphs for different cases. I will introduce two in this part: treemap and radarmap.
+
+#### treemapify
+
+treemapify provides ggplot2 geoms for drawing treemaps.
+
+```{r treemapify}
+#install.packages("treemapify")
+library(treemapify)
+library(gganimate)
+library(gapminder)
+
+p <- ggplot(gapminder, aes(
+    label = country,
+    area = pop,
+    subgroup = continent,
+    fill = lifeExp
+  )) +
+  geom_treemap(layout = "fixed") +
+  geom_treemap_text(layout = "fixed", place = "centre", grow = TRUE, colour = "white") +
+  geom_treemap_subgroup_text(layout = "fixed", place = "centre") +
+  geom_treemap_subgroup_border(layout = "fixed") +
+  transition_time(year) +
+  ease_aes('linear') +
+  labs(title = "Year: {frame_time}")
+#anim_save("man/figures/animated_treemap.gif", p, nframes = 48)
+animate(p)
+```
+
+#### radarmap
+
+ggradar allows you to build radar charts with ggplot2. The radarmap help us to compare multiple factors in one graph.
+
+```{r radar}
+#devtools::install_github("ricardo-bion/ggradar", dependencies = TRUE)
+library(ggradar)
+library(dplyr)
+library(scales)
+library(tibble)
+
+mtcars_radar <- mtcars %>% 
+  as_tibble(rownames = "group") %>% 
+  mutate_at(vars(-group), rescale) %>% 
+  tail(4) %>% 
+  select(1:10)
+ggradar(mtcars_radar)
+```
+
+That's all about packages for this week.
+I have learnt the basic grammar of ggplot2 and some useful packages for ggplot2 ecosystem.
+Moving forward, I believe that the demand of visualization will expand and some new tools will be learnt in order to fulfill those demands.
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

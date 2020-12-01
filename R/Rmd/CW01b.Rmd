@@ -1,0 +1,104 @@
+---
+title: "CW01b"
+author: "Ralph_Huang"
+date: "2020/8/21"
+output: redoc::redoc
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The rest of packages for CW01
+
+Well, in order to finish the homework in time, I have to find some easy packages. 
+
+### jsonlite
+
+This is a important and extremely easy package to turn json file into data frame.
+```{r jsonlite}
+library(jsonlite)
+json <- 
+'[
+  {"Name" : "Mario", "Age" : 32, "Occupation" : "Plumber"},
+  {"Name" : "Peach", "Age" : 21, "Occupation" : "Princess"}
+]'
+mydf <- fromJSON(json)
+mydf
+```
+
+### utf-8
+
+UTF-8 is the most widely used encoding nowadays. It would be confulsed when encoding goes wrong.
+
+```{r utf-8}
+#install.packages("utf8")
+library(utf8)
+x <- c("fa\u00E7ile", "fa\xE7ile", "fa\xC3\xA7ile")
+Encoding(x) <- c("UTF-8", "latin1", "bytes")
+as_utf8(x) 
+utf8_normalize("𝖸𝗈 𝐔𝐧𝐢𝐜𝐨𝐝𝐞 𝗅 𝗁𝖾𝗋𝖽 𝕌 𝗅𝗂𝗄𝖾 𝑡𝑦𝑝𝑒𝑓𝑎𝑐𝑒𝑠 𝗌𝗈 𝗐𝖾 𝗉𝗎𝗍 𝗌𝗈𝗆𝖾 𝚌𝚘𝚍𝚎𝚙𝚘𝚒𝚗𝚝𝚜 𝗂𝗇 𝗒𝗈𝗎𝗋 𝔖𝔲𝔭𝔭𝔩𝔢𝔪𝔢𝔫𝔱𝔞𝔯𝔶 𝔚𝔲𝔩𝔱𝔦𝔩𝔦𝔫𝔤𝔳𝔞𝔩 𝔓𝔩𝔞𝔫𝔢 𝗌𝗈 𝗒𝗈𝗎 𝖼𝖺𝗇 𝓮𝓷𝓬𝓸𝓭𝓮 𝕗𝕠𝕟𝕥𝕤 𝗂𝗇 𝗒𝗈𝗎𝗋 𝒇𝒐𝒏𝒕𝒔.",
+               map_compat = TRUE)
+print(intToUtf8(0x1F600 + 0:79))
+```
+### showtext
+
+The default font is too normal to make the whole picture shiny. Merely changing the font can beautify the plot a lot.
+
+```{r sharefont, echo=FALSE}
+#install.packages("showtext")
+library(showtext)
+## Loading Google fonts (https://fonts.google.com/)
+font_add_google("Gochi Hand", "gochi")
+font_add_google("Schoolbell", "bell")
+font_add_google("Covered By Your Grace", "grace")
+font_add_google("Rock Salt", "rock")
+
+## Automatically use showtext to render text for future devices
+showtext_auto()
+
+## Tell showtext the resolution of the device,
+## only needed for bitmap graphics. Default is 96
+showtext_opts(dpi = 96)
+
+set.seed(123)
+x = rnorm(10)
+y = 1 + x + rnorm(10, sd = 0.2)
+y[1] = 5
+mod = lm(y ~ x)
+
+op = par(cex.lab = 2, cex.axis = 1.5, cex.main = 2)
+plot(x, y, pch = 16, col = "steelblue",
+     xlab = "X variable", ylab = "Y variable", family = "gochi")
+grid()
+title("Draw Plots Before You Fit A Regression", family = "bell")
+text(-0.5, 4.5, "This is the outlier", cex = 2, col = "steelblue",
+     family = "grace")
+abline(coef(mod))
+abline(1, 1, col = "red")
+par(family = "rock")
+text(1, 1, expression(paste("True model: ", y == x + 1)),
+     cex = 1.5, col = "red", srt = 20)
+text(0, 2, expression(paste("OLS: ", hat(y) == 0.79 * x + 1.49)),
+     cex = 1.5, srt = 15)
+legend("topright", legend = c("Truth", "OLS"), col = c("red", "black"), lty = 1)
+
+par(op)
+
+```
+
+### redoc
+
+
+
+
+```{r pressure, echo=FALSE}
+#remotes::install_github("noamross/redoc")
+library(redoc)
+#just set output as `redoc::redoc`
+
+#dedoc(docx = "CW01b.docx")
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
